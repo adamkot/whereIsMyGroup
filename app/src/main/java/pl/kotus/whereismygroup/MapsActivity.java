@@ -27,8 +27,16 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
 
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 
 public class MapsActivity extends AppCompatActivity
         implements OnMapReadyCallback {
@@ -51,6 +59,33 @@ public class MapsActivity extends AppCompatActivity
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         mapFrag = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
         mapFrag.getMapAsync(this);
+
+
+        Thread thread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try  {
+                    connecting();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+        thread.start();
+    }
+
+    private void connecting() throws IOException, TimeoutException {
+        ConnectionFactory factory = new ConnectionFactory();
+        try {
+            factory.setUri("amqps://caepjesz:Rq9qsFsi268GKysZ3laXNrE3hPjZKx6W@kangaroo.rmq.cloudamqp.com:5672/caepjesz");
+        } catch (URISyntaxException |NoSuchAlgorithmException |KeyManagementException e) {
+            e.printStackTrace();
+        }
+        Connection conn = factory.newConnection();
+        Channel channel = conn.createChannel();
+        channel.exchangeDeclare("GPSLocations", "fanout", false);
+        String queueName = channel.queueDeclare().getQueue();
+        channel.queueBind(queueName, "GPSLocations", "");
     }
 
     @Override
